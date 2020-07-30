@@ -20,6 +20,8 @@
 using Orts.MultiPlayer;
 using Orts.Viewer3D.Debugging;
 using System;
+using System.Threading;
+using Orts.Viewer3D.TrainDirector;
 
 namespace Orts.Viewer3D.Processes
 {
@@ -55,8 +57,10 @@ namespace Orts.Viewer3D.Processes
                 if (MPManager.IsMultiPlayer() || Game.Settings.ViewDispatcher)
                 {
                     Program.DebugViewer = new DispatchViewer(Viewer.Simulator, Viewer);
-                    Program.DebugViewer.Hide();
-                    Viewer.DebugViewerEnabled = false;
+                    //Program.DebugViewer.Hide();
+                    Viewer.DebugViewerEnabled = true; // false;
+
+                    StartTDView();
                 }
 
                 Program.SoundDebugForm = new SoundDebugForm(Viewer);
@@ -130,7 +134,7 @@ namespace Orts.Viewer3D.Processes
         internal override void Dispose()
         {
             Viewer.Terminate();
-           if (MPManager.Server != null)
+            if (MPManager.Server != null)
                 MPManager.Server.Stop();
             if (MPManager.Client != null)
                 MPManager.Client.Stop();
@@ -143,5 +147,28 @@ namespace Orts.Viewer3D.Processes
             base.Dispose();
         }
 
+        TDConnectorView TdView;
+        TDController TdController;
+
+        void TDThread()
+        {
+            TDModel model = new TDModel();
+            TdController = new TDController(model, Viewer.Simulator);
+            //TdView = new TDConnectorView(TdController);
+            while (true) // TODO: check for termination flag
+            {
+                TdController.GetTDState(); // long-polling runs this every second or so.
+            }
+        }
+
+
+        internal void StartTDView()
+        {
+            //Application.EnableVisualStyles();
+            //Application.SetCompatibleTextRenderingDefault(false);
+            var t = new Thread(TDThread);
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+        }
     }
 }
